@@ -1,3 +1,4 @@
+#include <iostream>
 #include "node_worker.h"
 #include "async_wrap-inl.h"
 #include "debug_utils-inl.h"
@@ -64,6 +65,8 @@ Worker::Worker(Environment* env,
       env_vars_(env_vars),
       embedder_preload_(env->embedder_preload()),
       snapshot_data_(snapshot_data) {
+  std::cout << "-----hello korah" << url <<std::endl;
+  std::cout << "-----hello korah2" << name <<std::endl;
   Debug(this, "Creating new worker instance with thread id %llu",
         thread_id_.id);
 
@@ -812,12 +815,15 @@ class WorkerHeapSnapshotTaker : public AsyncWrap {
 };
 
 void Worker::TakeHeapSnapshot(const FunctionCallbackInfo<Value>& args) {
+  std::cout << "-----cpp taking heap snapshot" <<std::endl;
   Worker* w;
-  ASSIGN_OR_RETURN_UNWRAP(&w, args.This());
+  ASSIGN_OR_RETURN_UNWRAP(&w, args.This());//returns from thecurrent function if unwrapping fails 
   CHECK_EQ(args.Length(), 1);
   auto options = heap::GetHeapSnapshotOptions(args[0]);
 
   Debug(w, "Worker %llu taking heap snapshot", w->thread_id_.id);
+  std::cout << "-----cpp thread_id_ = " << w->thread_id_.id <<std::endl;//fix it
+  std::cout << "-----cpp args.Length() = " << args.Length() <<std::endl;//fix it
 
   Environment* env = w->env();
   AsyncHooks::DefaultTriggerAsyncIdScope trigger_id_scope(w);
@@ -826,6 +832,7 @@ void Worker::TakeHeapSnapshot(const FunctionCallbackInfo<Value>& args) {
       ->NewInstance(env->context()).ToLocal(&wrap)) {
     return;
   }
+  //----here1
 
   // The created WorkerHeapSnapshotTaker is an object owned by main
   // thread's Isolate, it can not be accessed by worker thread
@@ -833,6 +840,8 @@ void Worker::TakeHeapSnapshot(const FunctionCallbackInfo<Value>& args) {
       std::make_unique<BaseObjectPtr<WorkerHeapSnapshotTaker>>(
           MakeDetachedBaseObject<WorkerHeapSnapshotTaker>(env, wrap));
 
+
+  //getting the snapshot
   // Interrupt the worker thread and take a snapshot, then schedule a call
   // on the parent thread that turns that snapshot into a readable stream.
   bool scheduled = w->RequestInterrupt([taker = std::move(taker), env, options](
@@ -968,7 +977,7 @@ void CreateWorkerPerContextProperties(Local<Object> target,
 
   target
       ->Set(env->context(),
-            env->thread_id_string(),
+            env->thread_id_string(),//print thread_id_string
             Number::New(isolate, static_cast<double>(env->thread_id())))
       .Check();
 
